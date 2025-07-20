@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReviewAnalyzer</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #1e3a8a, #3b82f6);
+      color: #e0f2fe;
+    }
+    .Galaxy S23-in {
+      animation: fadeIn 0.8s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .section-title {
+      color: #fef9c3;
+    }
+  </style>
+</head>
+<body class="p-4 font-sans">
+  <div class="text-center text-3xl font-bold mb-6 fade-in section-title">📊 ReviewAnalyzer</div>
+  <div class="bg-white text-black p-4 rounded-lg shadow-lg mb-6 fade-in">
+    <input type="text" id="searchInput" placeholder="Search Product Model (e.g. iPhone 13)" class="w-full p-2 border rounded mb-4" />
+    <button onclick="analyzeData()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-800 transition-all">Analyze</button>
+  </div>
+  <div class="text-sm text-white mb-4">
+    <p class="font-bold">🔍 Try searching for:</p>
+    <ul class="list-disc ml-6">
+      <li>iPhone 13</li>
+      <li>MacBook Air M2</li>
+      <li>Galaxy S23</li>
+    </ul>
+  </div>
+  <div id="result" class="fade-in"></div>
+  <canvas id="lineChart" class="w-full max-w-xl mx-auto mt-6"></canvas>
+  <canvas id="salesPieChart" class="w-full max-w-xl mx-auto mt-6"></canvas>
+  <canvas id="pieChart" class="w-full max-w-xl mx-auto mt-6"></canvas>
+  <script>
+    const productData = [
+      { Brand: "Apple", Model: "iPhone 13", Year: "2020", "Average Rating": 4.5, "Sales (INR Crores)": 900, Reviews: 12000, Pros: "Smooth performance, Excellent camera", Cons: "Expensive" },
+      { Brand: "Apple", Model: "iPhone 13", Year: "2021", "Average Rating": 4.6, "Sales (INR Crores)": 1200, Reviews: 15000, Pros: "Battery life, Display quality", Cons: "No charger in box" },
+      { Brand: "Apple", Model: "iPhone 13", Year: "2022", "Average Rating": 4.7, "Sales (INR Crores)": 1350, Reviews: 18000, Pros: "Camera, iOS experience", Cons: "High price" },
+      { Brand: "Apple", Model: "MacBook Air M2", Year: "2022", "Average Rating": 4.8, "Sales (INR Crores)": 2300, Reviews: 9500, Pros: "Ultra-fast, Long battery", Cons: "Pricey" },
+      { Brand: "Xiaomi", Model: "Redmi Note 12", Year: "2021", "Average Rating": 4.3, "Sales (INR Crores)": 780, Reviews: 11000, Pros: "Affordable, Good battery", Cons: "Ads in UI" },
+      { Brand: "Xiaomi", Model: "Redmi Note 12", Year: "2022", "Average Rating": 4.2, "Sales (INR Crores)": 830, Reviews: 13000, Pros: "Fast charging", Cons: "Plastic build" },
+      { Brand: "Xiaomi", Model: "Redmi Note 12", Year: "2023", "Average Rating": 4.4, "Sales (INR Crores)": 890, Reviews: 14500, Pros: "Camera, Display", Cons: "MIUI bugs" },
+      { Brand: "Samsung", Model: "Galaxy S23", Year: "2023", "Average Rating": 4.6, "Sales (INR Crores)": 1650, Reviews: 14000, Pros: "Premium design, Display", Cons: "Cost" },
+      { Brand: "Samsung", Model: "Galaxy Watch 5", Year: "2022", "Average Rating": 4.5, "Sales (INR Crores)": 680, Reviews: 8200, Pros: "Fitness features, AMOLED screen", Cons: "Battery life" },
+      { Brand: "boAt", Model: "Airdopes 141", Year: "2022", "Average Rating": 4.2, "Sales (INR Crores)": 300, Reviews: 9600, Pros: "Great bass, Affordable", Cons: "Bulky case" },
+      { Brand: "HP", Model: "Pavilion x360", Year: "2021", "Average Rating": 4.4, "Sales (INR Crores)": 1100, Reviews: 8700, Pros: "Convertible, Value for money", Cons: "Battery backup" },
+      { Brand: "Dell", Model: "XPS 13", Year: "2022", "Average Rating": 4.7, "Sales (INR Crores)": 1650, Reviews: 7200, Pros: "Display, Performance", Cons: "Price" },
+      { Brand: "Noise", Model: "ColorFit Ultra 3", Year: "2023", "Average Rating": 4.3, "Sales (INR Crores)": 450, Reviews: 6300, Pros: "Bright screen, Value", Cons: "Build quality" },
+      { Brand: "Dabur", Model: "Chyawanprash", Year: "2022", "Average Rating": 4.6, "Sales (INR Crores)": 1320, Reviews: 8700, Pros: "Immunity booster", Cons: "Strong taste" },
+      { Brand: "Patanjali", Model: "Aloe Vera Gel", Year: "2021", "Average Rating": 4.2, "Sales (INR Crores)": 720, Reviews: 5400, Pros: "Multi-purpose, Natural", Cons: "Packaging" }
+    ];
+
+    function analyzeData() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = productData.filter(row => row.Model.toLowerCase().includes(searchTerm));
+      if (filtered.length === 0) {
+        document.getElementById('result').innerHTML = '<div class="text-center text-red-200">No data found for the searched product.</div>';
+        return;
+      }
+
+      const years = [...new Set(filtered.map(row => row.Year))].sort();
+      const ratings = years.map(y => average(filtered.filter(row => row.Year === y), 'Average Rating'));
+      const sales = years.map(y => sum(filtered.filter(row => row.Year === y), 'Sales (INR Crores)'));
+      const reviews = years.map(y => sum(filtered.filter(row => row.Year === y), 'Reviews'));
+      const pros = filtered[filtered.length - 1].Pros;
+      const cons = filtered[filtered.length - 1].Cons;
+
+      document.getElementById('result').innerHTML = `
+        <div class="bg-white text-black p-4 rounded shadow fade-in">
+          <h2 class="text-xl font-semibold mb-2">Analysis for: ${searchTerm}</h2>
+          <p><strong>Average Rating (latest year):</strong> ${ratings[ratings.length - 1]}</p>
+          <p><strong>Total Sales (latest year):</strong> ₹${sales[sales.length - 1]} Cr</p>
+          <p><strong>Total Reviews (latest year):</strong> ${reviews[reviews.length - 1]}</p>
+          <p><strong>Pros:</strong> ${pros}</p>
+          <p><strong>Cons:</strong> ${cons}</p>
+          <div class="mt-2 text-green-700 font-semibold">These products are best on <span class="text-blue-800">Amazon</span> and <span class="text-blue-800">Flipkart</span>.</div>
+        </div>
+      `;
+
+      const ctx = document.getElementById('lineChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: years,
+          datasets: [
+            {
+              label: 'Average Rating',
+              data: ratings,
+              borderColor: 'rgba(255, 206, 86, 1)',
+              backgroundColor: 'rgba(255, 206, 86, 0.2)',
+              yAxisID: 'y1'
+            },
+            {
+              label: 'Sales (INR Cr)',
+              data: sales,
+              borderColor: 'rgba(54, 162, 235, 1)',
+              backgroundColor: 'rgba(54, 162, 235, 0.2)',
+              yAxisID: 'y2'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          stacked: false,
+          plugins: { title: { display: true, text: 'Year-wise Product Analysis' } },
+          scales: {
+            y1: { type: 'linear', position: 'left', min: 0, max: 5 },
+            y2: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+
+      const salesPieCtx = document.getElementById('salesPieChart').getContext('2d');
+      new Chart(salesPieCtx, {
+        type: 'pie',
+        data: {
+          labels: ['High Sales', 'Moderate Sales', 'Low Sales'],
+          datasets: [{
+            label: 'Sales Categories',
+            data: [
+              sales[sales.length - 1] > 1200 ? 1 : 0,
+              sales[sales.length - 1] <= 1200 && sales[sales.length - 1] > 600 ? 1 : 0,
+              sales[sales.length - 1] <= 600 ? 1 : 0
+            ],
+            backgroundColor: ['#10b981', '#60a5fa', '#f87171']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: { display: true, text: 'Sales Distribution for Latest Year' }
+          }
+        }
+      });
+
+      const pieCtx = document.getElementById('pieChart').getContext('2d');
+      new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+          labels: ['Positive Reviews', 'Neutral Reviews', 'Negative Reviews'],
+          datasets: [{
+            label: 'Review Sentiment',
+            data: [65, 20, 15],
+            backgroundColor: ['#34d399', '#fbbf24', '#f87171']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: { display: true, text: 'Customer Review Sentiment Split' }
+          }
+        }
+      });
+    }
+
+    function average(arr, key) {
+      const vals = arr.map(row => parseFloat(row[key] || 0)).filter(v => !isNaN(v));
+      return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2);
+    }
+
+    function sum(arr, key) {
+      return arr.map(row => parseFloat(row[key] || 0)).reduce((a, b) => a + b, 0).toFixed(0);
+    }
+  </script>
+</body>
+</html>
